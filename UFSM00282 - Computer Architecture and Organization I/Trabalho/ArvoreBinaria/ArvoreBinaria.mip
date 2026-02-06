@@ -1,0 +1,35 @@
+ArvoreBinaria
+Y:\ArvoreBinaria\
+Objects\
+4
+Y:\ArvoreBinaria\BinarySearchTree.c
+1
+0
+Y:\ArvoreBinaria\CreateStudent_asm.s
+0
+0
+Y:\ArvoreBinaria\Insert_r_asm.s
+0
+0
+Y:\ArvoreBinaria\RemoveStudent_asm.s
+0
+0
+6
+kil
+c
+m
+lnk
+gcc
+soft-float
+2
+msoft-float
+nostdinc
+2
+N
+nostdlib
+1
+crt0.o
+0
+1
+objcopy.exe -O srec ArvoreBinaria.out ArvoreBinaria.srec
+80020000 start
