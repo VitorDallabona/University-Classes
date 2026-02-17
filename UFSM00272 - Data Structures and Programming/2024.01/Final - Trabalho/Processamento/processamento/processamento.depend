@@ -1,0 +1,22 @@
+# depslib dependency file v1.0
+1723056635 source:c:\users\vitor\documents\engenharia da computação\2º semestre (2024.1)\estrutura de dados\trabalho - segundo bimestre\código base\menu.c
+	<stdio.h>
+	<unistd.h>
+	<locale.h>
+	"tad_configs.h"
+
+1723057610 c:\users\vitor\documents\engenharia da computação\2º semestre (2024.1)\estrutura de dados\trabalho - segundo bimestre\código base\tad_configs.h
+	<stdio.h>
+	<stdlib.h>
+
+1723052256 source:c:\users\vitor\documents\engenharia da computação\2º semestre (2024.1)\estrutura de dados\trabalho - segundo bimestre\código base\tad_configs.c
+	<stdio.h>
+	<stdlib.h>
+	<unistd.h>
+	<locale.h>
+	"tad_configs.h"
+
+1723057610 source:c:\users\vitor\documents\engenharia da computação\2º semestre (2024.1)\estrutura de dados\trabalho - segundo bimestre\código base\tad_configs.h
+	<stdio.h>
+	<stdlib.h>
+

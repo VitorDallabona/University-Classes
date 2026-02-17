@@ -1,0 +1,278 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <locale.h>
+#include "tad_configs.h"
+
+#define CONFIGS_FILE "../../configuracoes.dat" // arquivo de controle (prioridade, tempo execução, status etc)
+#define FILA_NORMAL_FILE "../../fila_normal.dat" // arquivo de fila normal (criado duas pastas acima da atual)
+#define FILA_PRIORIDADE_FILE "../../fila_prioridade.dat" // arquivo de fila de prioridade (criado duas pastas acima da atual)
+
+
+
+/******** FUNÇÕES DE CONFIGURAÇÃO **********/
+
+// FUNÇÃO PRONTA
+TadConfigs *configs_inicializar() {//const char *nome_arquivo
+    TadConfigs *tad = malloc(sizeof(TadConfigs));
+    if (!tad) {
+      return NULL;
+    }
+    FILE *arquivo = configs_abrir();
+    if(arquivo) {
+        // lê os dados
+        configs_ler(tad);
+        configs_fechar(arquivo);
+    } else {
+        return NULL;
+    }
+    return tad;
+}
+
+// FUNÇÃO PRONTA
+FILE *configs_abrir() {
+    FILE *arquivo;
+    if( access(CONFIGS_FILE, F_OK ) != -1 ) { // arquivo já existe
+        arquivo = fopen(CONFIGS_FILE, "rb+"); // apenas abre o arquivo ("rb+": abre um arquivo binário para leitura e gravação)
+    } else {
+        arquivo = fopen(CONFIGS_FILE, "wb+"); // cria arquivo novo ("wb+": cria um arquivo binário vazio para leitura e gravação - se já existe, será limpo)
+        TadConfigs *tad = malloc(sizeof(TadConfigs));
+        tad->configs.status = AGUARDAR; // inicializa o TAD com dados padrão
+        tad->configs.intervalo = 1;
+        tad->configs.id_atual_normal = 1;
+        tad->configs.id_atual_prioridade = 1;
+        if (tad && arquivo) {
+          fwrite(&tad->configs, sizeof(Configs), 1, arquivo);
+        }
+    }
+    return arquivo;
+}
+
+// FUNÇÃO PRONTA
+void configs_fechar(FILE *arquivo) {
+    fclose(arquivo);
+}
+
+// FUNÇÃO PRONTA
+void configs_destruir(TadConfigs *tad) {
+    if (tad) {
+        if (tad->arquivo) {
+            fclose(tad->arquivo);
+        }
+    free(tad);
+    }
+}
+
+// FUNÇÃO PRONTA
+void configs_salvar(TadConfigs *tad) {
+    FILE *arquivo = configs_abrir();
+    if (tad && arquivo) {
+      fwrite(&tad->configs, sizeof(Configs), 1, arquivo);
+    }
+    configs_fechar(arquivo);
+}
+
+// FUNÇÃO PRONTA
+void configs_ler(TadConfigs *tad) {
+    FILE *arquivo = configs_abrir();
+    if (tad && arquivo) {
+        fread(&tad->configs, sizeof(Configs), 1, arquivo);
+    }
+    configs_fechar(arquivo);
+}
+
+// FUNÇÃO PRONTA
+void configs_mostrar(TadConfigs *tad) {
+    setlocale(LC_ALL, "Portuguese");
+    if (tad) {
+        // Exibir configurações (carrega do arquivo existente se existir)
+        printf("\nConfigurações:\n");
+        printf(" - Status: %s\n", tad->configs.status == 0 ? "Aguardar" : tad->configs.status == 1 ? "Simular" : "Terminar");
+        printf(" - Intervalo: %d segundo\n\n", tad->configs.intervalo);
+        printf(" - ID atual normal: %d\n", tad->configs.id_atual_normal);
+        printf(" - ID atual prioridade: %d\n", tad->configs.id_atual_prioridade);
+    }
+}
+
+// FUNÇÃO PRONTA
+void configs_atualizar(TadConfigs *tad, statusProcessamento status, int intervalo) {
+    if (tad) {
+        tad->configs.status = status;
+        tad->configs.intervalo = intervalo;
+        configs_salvar(tad);
+    }
+}
+
+
+/************* FUNÇÕES PARA AS FILAS ****************/
+
+// Função para criar uma fila de prioridade máxima (código Moodle)
+FilaPrioridadeMaxima* criar_fila_prioridade_maxima(int capacidade) {
+    FilaPrioridadeMaxima *fila = (FilaPrioridadeMaxima *)malloc(sizeof(FilaPrioridadeMaxima)); // aloca memória para a fila
+    fila->dados = (Item *)malloc(capacidade * sizeof(Item)); // aloca memória para os elementos
+    fila->capacidade = capacidade; // estabelece a capacidade da fila
+    fila->tamanho = 0; // estabelece o tamanho inicial
+    return fila;
+}
+
+
+// Função auxiliar de troca de itens
+static void trocar(Item *a, Item *b) {
+    Item temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+
+// Função para inserir na fila de prioridade
+void inserir(FilaPrioridadeMaxima *fila, Item item) {
+    if (fila->tamanho >= fila->capacidade) { // capacidade esgotada
+        fila->capacidade *= 2;
+        fila->dados = (Item *)realloc(fila->dados, fila->capacidade * sizeof(Item)); // aloca memória
+    }
+    fila->dados[fila->tamanho] = item; // adiciona o item na posição
+    arrumar_acima(fila, fila->tamanho); // corrige a posição do elemento na heap
+    fila->tamanho++; // incrementa o tamanho da fila
+}
+
+
+// função para arrumar acima do elemento adicionado
+static void arrumar_acima(FilaPrioridadeMaxima *fila, int indice) {
+    // continua até que o índice seja diferente da raiz e enquanto a prioridade do item atual seja maior que a do elemento pai
+    while (indice > 0 && fila->dados[indice].prioridade > fila->dados[(indice - 1) / 2].prioridade) {
+        trocar(&fila->dados[indice], &fila->dados[(indice - 1) / 2]); // se for diferente a prioridade, troca
+        indice = (indice - 1) / 2; // atualiza o índice do elemento pai
+    }
+}
+
+
+// função para obter o maior elemento
+Item extrair_maximo(FilaPrioridadeMaxima *fila) {
+    if (fila->tamanho == 0) { // caso em que o tamanho da fila é zero
+        Item item_vazio = {0, 0, NENHUMA, 0};
+        return item_vazio;
+    }
+    Item maximo = fila->dados[0]; // o maior elemento é a raiz
+    fila->dados[0] = fila->dados[fila->tamanho - 1]; // remove o elemento
+    fila->tamanho--; // atualiza o tamanho da fila
+    arrumar_abaixo(fila, 0); // arruma a posição dos elementos
+    return maximo;
+}
+
+
+// função para arrumar os elementos abaixo
+static void arrumar_abaixo(FilaPrioridadeMaxima *fila, int indice) {
+    int max_indice = indice; // inicialmente é o índice atual (inicialmente 0)
+    int esquerda = 2 * indice + 1; // índice do filho à esquerda
+    int direita = 2 * indice + 2; // índice do filho à direita
+
+    // se o índice da esquerda está dentro do tamanho da fila e a prioridade do filho da esquerda é maior que a do índice atual
+    if (esquerda < fila->tamanho && fila->dados[esquerda].prioridade > fila->dados[max_indice].prioridade) {
+        max_indice = esquerda;
+    }
+
+    // se o índice da direita está dentro do tamanho da fila e a prioridade do filho da direita é maior que a do índice atual
+    if (direita < fila->tamanho && fila->dados[direita].prioridade > fila->dados[max_indice].prioridade) {
+        max_indice = direita;
+    }
+
+    if (max_indice != indice) { // se max_indice não está na posição adequada, então troca
+        trocar(&fila->dados[indice], &fila->dados[max_indice]);
+        arrumar_abaixo(fila, max_indice); // chamada recursiva para fazer isso para todos elementos fora de ordem
+    }
+}
+
+
+/*************** FUNÇÕES PARA OS ARQUIVOS DAS FILAS **********************/
+
+// Função para mostrar as filas
+void fila_mostrar(const char *filename) {
+    FILE *file = fopen(filename, "rb"); // "rb": abre o arquivo para leitura
+    if (!file) return;
+
+    Item item;
+    while (fread(&item, sizeof(Item), 1, file)) { // enquanto está lendo a função
+        printf("ID: %d; Tempo p/ processamento: %d; Prioridade: %d\n", item.id, item.tempo_processamento, item.prioridade);
+    }
+    fclose(file);
+}
+
+// Função para inserir no arquivo de fila normal
+void fila_inserir_normal(const char *filename, Item item) {
+    FILE *file = fopen(filename, "ab"); // "ab": acrescenta dados binários no fim do arquivo
+    if (file) {
+        fwrite(&item, sizeof(Item), 1, file); // recebe o item a ser escrito, o tamanho do item, o número de itens e arquivo
+        fclose(file); // fecha após inserir
+    }
+}
+
+// Função para inserir no arquivo de fila de prioridade
+void fila_inserir_prioridade(const char *filename, Item item) {
+    FilaPrioridadeMaxima *fila = criar_fila_prioridade_maxima(10); // capacidade inicial da fila de prioridade
+    FILE *file = fopen(filename, "rb"); // abre o arquivo para leitura
+    if (file) {
+        Item temp_item; // variável p/ os itens que já estão no arquivo
+        while (fread(&temp_item, sizeof(Item), 1, file)) { // lê cada item do arquivo e insere na heap
+            inserir(fila, temp_item);
+        }
+        fclose(file);
+    }
+
+    inserir(fila, item); // chama a função para inserir o novo elemento
+
+    file = fopen(filename, "wb"); // abre o arquivo para escrever
+    if (file) {
+        int i;
+        for (i = 0; i < fila->tamanho; i++) {
+            fwrite(&fila->dados[i], sizeof(Item), 1, file); // escreve cada item da fila de prioridade no arquivo
+        }
+        fclose(file);
+    }
+
+    free(fila->dados); // libera memória alocada pro array
+    free(fila); // libera a fila
+}
+
+// função para remover dos arquivos de fila (normal e com prioridade)
+int fila_remover_geral(const char *filename, TipoFila tipo, Item *item) {
+    FILE *file = fopen(filename, "rb+"); // abre o arquivo da fila no modo de leitura e escrita
+    if (!file) return 0;
+
+    FILE *temp = tmpfile(); // cria um arquivo temporário para armazenar os itens durante a remoção
+    if (!temp) {
+        fclose(file);
+        return 0;
+    }
+
+    int found = 0; // variável flag para verificar se foi encontrado um elemento ainda não finalizado
+    Item temp_item; // variável para ler os itens do arquivo
+
+    // para cada item no arquivo de fila
+    while (fread(&temp_item, sizeof(Item), 1, file)) {
+        if (!found && !temp_item.finalizado) { // se o item não foi encontrado ainda (=0) e não foi finalizado
+            *item = temp_item; // armazena o dado do item temp no ponteiro do item para remover
+            item->finalizado = 1; // atualiza o item para finalizado
+            found = 1; // atualiza para encontrado
+        } else { // se o item já foi encontrado e finalizado, armazenado no arquivo temporário
+            fwrite(&temp_item, sizeof(Item), 1, temp);
+        }
+    }
+
+    if (found) {
+        rewind(file); // seta a ponteiro para o início do arquivo
+        rewind(temp);
+        // para cada item do arquivo temporário
+        while (fread(&temp_item, sizeof(Item), 1, temp)) {
+            fwrite(&temp_item, sizeof(Item), 1, file); // escreve no arquivo da fila
+        }
+
+        fflush(file); // limpa o buffer
+        ftruncate(fileno(file), ftell(file)); // garante a remoção de dados antigos
+    }
+
+    // fecha os arquivos
+    fclose(file);
+    fclose(temp);
+    return found; // retorna 1 se removido, ou zero caso contrário
+}
+

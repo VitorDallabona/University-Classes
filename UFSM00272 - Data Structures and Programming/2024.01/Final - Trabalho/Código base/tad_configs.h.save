@@ -1,0 +1,81 @@
+#ifndef TAD_CONFIGS_H
+#define TAD_CONFIGS_H
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define CONFIGS_FILE "configuracoes.dat"
+#define FILA_NORMAL_FILE "../../fila_normal.dat"
+#define FILA_PRIORIDADE_FILE "../../fila_prioridade.dat"
+
+typedef enum {
+    AGUARDAR,
+    SIMULAR,
+    TERMINAR
+} statusProcessamento;
+
+typedef struct conf {
+    statusProcessamento status;
+    int intervalo;
+    int id_atual_normal; // id atual normal (sem prioridade)
+    int id_atual_prioridade; // id atual com prioriedade
+} Configs;
+
+typedef struct tad_configs {
+  FILE *arquivo;
+  Configs configs;
+} TadConfigs;
+
+typedef enum {
+    NENHUMA,
+    BAIXA,
+    MÉDIA,
+    ALTA,
+} PrioridadeItem;
+
+typedef struct item {
+    int id; // id do item
+    int tempo_processamento; // tempo de processamento
+    PrioridadeItem prioridade; // prioridade
+    int finalizado; // status
+} Item;
+
+// registro para a fila de prioridade
+typedef struct {
+    Item *dados;
+    int capacidade;
+    int tamanho;
+} FilaPrioridadeMaxima;
+
+FILE *configs_abrir();
+TadConfigs *configs_inicializar();
+
+// Funções prontas já definidas no tad_configs.c
+void configs_fechar(FILE *arquivo);
+void configs_destruir(TadConfigs *tad);
+void configs_salvar(TadConfigs *tad);
+void configs_ler(TadConfigs *tad);
+void configs_mostrar(TadConfigs *tad);
+void configs_atualizar(TadConfigs *tad, statusProcessamento status, int intervalo);
+
+// Funções que precisam ser implementadas no tad_configs.c
+
+
+// FUNÇÕES PARA INSERIR E REMOVER DO ARQUIVO
+void fila_inserir_normal(const char *filename, Item item); // função para inserir na fila normal
+void fila_inserir_prioridade(const char *filename, Item item); // função para inserir na fila de prioridade
+int fila_remover_normal(const char *filename, Item *item); // função para remover da fila normal
+int fila_remover_prioridade(const char *filename, Item *item); // função para remover da fila com prioridade
+void fila_mostrar(const char *filename); // função para mostrar a fila
+
+
+// FUNÇÕES PARA INSERIR NA FILA DE PRIORIDADE COM HEAP MÁXIMA
+FilaPrioridadeMaxima* criar_fila_prioridade_maxima(int capacidade); // criar a fila de prioridade
+void inserir(FilaPrioridadeMaxima *fila, Item item); // inserir na fila de prioridade máxima
+static void arrumar_acima(FilaPrioridadeMaxima *fila, int indice); // função arrumar acima
+static void trocar(Item *a, Item *b); // função auxiliar de troca
+Item extrair_maximo(FilaPrioridadeMaxima *fila); // extrair da fila de prioridade máxima
+static void arrumar_abaixo(FilaPrioridadeMaxima *fila, int indice); // função arrumar abaixo
+
+
+#endif

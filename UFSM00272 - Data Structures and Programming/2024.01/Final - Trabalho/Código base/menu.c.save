@@ -1,0 +1,105 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <locale.h>
+#include "tad_configs.h"
+
+
+/****** MENU DE OPÇÕES ******/
+int menu() {
+    setlocale(LC_ALL, "Portuguese");
+    printf("---------------");
+    printf("\nMenu de Opções:\n");
+    printf("1. Aguardar\n");
+    printf("2. Simular\n"); // remover da fila (prioridade ou normal)
+    printf("3. Terminar\n"); // fecha o programa de simulação
+    printf("4. Ver filas\n"); // ver as filas (prioridade ou normal)
+    printf("5. Inserir na fila\n"); // adiciona na fila
+    printf("---------------");
+    printf("\n\nInforme a opção desejada: ");
+    int aux;
+    scanf("%d", &aux); // recebe a opção desejada do usuário
+    return aux; // retorna a opção desejada
+}
+
+int main() {
+    setlocale(LC_ALL, "Portuguese");
+
+    TadConfigs *tad_configs;
+    int op;
+    // Criar TAD e abrir arquivo
+    tad_configs = configs_inicializar();
+    if (!tad_configs) {
+        printf("Erro ao criar TAD\n");
+        return 1;
+    }
+    do {
+        op = menu();
+        switch(op) {
+            case 1: { // Aguardar
+                configs_atualizar(tad_configs, AGUARDAR, tad_configs->configs.intervalo);
+                printf("Status atualizado para AGUARDAR.\n");
+                break;
+            }
+            case 2: { // Simular
+                configs_atualizar(tad_configs, SIMULAR, tad_configs->configs.intervalo);
+                printf("Status atualizado para SIMULAR.\n");
+                break;
+            }
+            case 3: { // Terminar
+                configs_atualizar(tad_configs, TERMINAR, tad_configs->configs.intervalo);
+                printf("Status atualizado para TERMINAR.\n");
+                break;
+            }
+            case 4: { // Ler
+                // Carregar configurações
+                configs_ler(tad_configs);
+                // Exibir configurações (carrega do arquivo existente se existir)
+                configs_mostrar(tad_configs);
+                printf("\nFila Normal:\n");
+                fila_mostrar(FILA_NORMAL_FILE); // mostra a fila normal
+                printf("\nFila Prioridade:\n");
+                fila_mostrar(FILA_PRIORIDADE_FILE); // mostra a fila de prioridade
+                break;
+            }
+            case 5: { // inserir
+                Item item;
+                item.tempo_processamento = (rand() % 10) + 1; // 
+                item.finalizado = 0;
+                printf("Prioridade (0 = normal, 1 = baixa, 2 = média, 3 = alta): ");
+                int prioridade;
+                scanf("%d", &prioridade);
+                if (prioridade == 0) {
+                    item.id = tad_configs->configs.id_atual_normal++;
+                    item.prioridade = NENHUMA;
+                    fila_inserir_normal(FILA_NORMAL_FILE, item);
+                } else {
+                    item.id = tad_configs->configs.id_atual_prioridade++;
+                    switch(prioridade) {
+                        case 1:
+                            item.prioridade = BAIXA;
+                            break;
+                        case 2:
+                            item.prioridade = MEDIA;
+                            break;
+                        case 3:
+                            item.prioridade = ALTA;
+                            break;
+                        default:
+                            item.prioridade = NENHUMA;
+                            break;
+                    }
+                    fila_inserir_prioridade(FILA_PRIORIDADE_FILE, item);
+                }
+                configs_salvar(tad_configs);
+                break;
+            }
+            default: {
+                printf("Opção inválida!\n");
+            }
+        }
+    } while (op != 3);
+
+    configs_destruir(tad_configs);
+    printf("Processamento encerrado\n");
+    return 0;
+}
